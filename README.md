@@ -70,6 +70,8 @@ Default model aliases:
 
 Kiro lists Opus 5.5 and Sonnet 5.5 in its [model documentation](https://kiro.dev/docs/models/). Availability and credit costs depend on your account and Kiro's current offering. `kclaude models` shows the adapter's model aliases; it does not check your account's entitlements or remaining credits.
 
+**Token counters:** Kiro API-key responses can omit token counts. When they do, kclaude estimates input with `cl100k_base` over the serialized request and output at about four characters per token, including thinking and tool arguments. These are approximations, not Claude's tokenizer or Kiro's bill. Upstream counts take priority when provided. Claude Code's dollar estimate does not represent Kiro subscription charges; check your Kiro account for credit usage. Counts recorded as zero by versions before 1.0.0.1 are not repaired retroactively.
+
 ## Continue an existing Claude chat
 
 From the same project directory:

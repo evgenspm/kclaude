@@ -90,8 +90,8 @@ func TestParseStream_SingleEvents(t *testing.T) {
 				if e.TotalTokens != 300 {
 					t.Errorf("TotalTokens = %d", e.TotalTokens)
 				}
-				if e.InputTokens != 220 {
-					t.Errorf("InputTokens = %d, want 220 (uncached+cacheRead)", e.InputTokens)
+				if e.InputTokens != 200 {
+					t.Errorf("InputTokens = %d, want 200 (uncached only)", e.InputTokens)
 				}
 			},
 		},

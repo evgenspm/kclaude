@@ -155,24 +155,35 @@ func ParseStream(ctx context.Context, r io.Reader, callback func(Event) bool) er
 
 		case EventMetadata:
 			var m struct {
-				TokenUsage struct {
-					UncachedInputTokens   int `json:"uncachedInputTokens"`
-					OutputTokens          int `json:"outputTokens"`
-					TotalTokens           int `json:"totalTokens"`
-					CacheReadInputTokens  int `json:"cacheReadInputTokens"`
-					CacheWriteInputTokens int `json:"cacheWriteInputTokens"`
+				TokenUsage *struct {
+					UncachedInputTokens   *int `json:"uncachedInputTokens"`
+					OutputTokens          *int `json:"outputTokens"`
+					TotalTokens           int  `json:"totalTokens"`
+					CacheReadInputTokens  int  `json:"cacheReadInputTokens"`
+					CacheWriteInputTokens int  `json:"cacheWriteInputTokens"`
 				} `json:"tokenUsage"`
 			}
 			if err := json.Unmarshal(payload, &m); err == nil {
 				tu := m.TokenUsage
+				// Kiro API-key streams may send only {"stopReason":"END_TURN"}.
+				// Missing counts must not become authoritative zero usage, which
+				// would suppress the response converter's local token estimates.
+				// Pointers distinguish absent counts from legitimate explicit zeros.
+				if tu == nil || tu.UncachedInputTokens == nil || tu.OutputTokens == nil {
+					continue
+				}
+				if *tu.UncachedInputTokens < 0 || *tu.OutputTokens < 0 || tu.CacheReadInputTokens < 0 || tu.CacheWriteInputTokens < 0 {
+					continue
+				}
 				stop = callback(Event{
 					Type:                  eventType,
-					UncachedInputTokens:   tu.UncachedInputTokens,
+					UncachedInputTokens:   *tu.UncachedInputTokens,
 					CacheReadInputTokens:  tu.CacheReadInputTokens,
 					CacheWriteInputTokens: tu.CacheWriteInputTokens,
-					OutputTokens:          tu.OutputTokens,
+					OutputTokens:          *tu.OutputTokens,
 					TotalTokens:           tu.TotalTokens,
-					InputTokens:           tu.UncachedInputTokens + tu.CacheReadInputTokens,
+					// Anthropic reports cached input separately; do not count it twice.
+					InputTokens: *tu.UncachedInputTokens,
 				})
 			} else {
 				slog.Warn("kiro: failed to decode event", "type", eventType, "err", err)
