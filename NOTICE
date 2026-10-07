@@ -1,0 +1,26 @@
+kclaude
+Copyright 2026 evgenspm
+
+This distribution includes code from ClaudeCode Kiro by itututu:
+https://github.com/itututu/claudecode-kiro (commit 796075c)
+Copyright 2026 itututu
+
+ClaudeCode Kiro is based on kirocc by d-kuro:
+https://github.com/d-kuro/kirocc
+These projects are licensed under the Apache License, Version 2.0.
+
+Modifications in this distribution include a local multi-account router,
+API-key failover, Opus 5.5 and Sonnet 5.5 mappings, a separate Claude Code
+profile, account management, installers, release tooling and tests.
+All Go imports were changed to the github.com/evgenspm/kclaude module.
+
+The upstream NOTICE includes the following attribution:
+"Modified files add Kiro MCP WebSearch support, an isolated ClawGod launch
+profile, installation tooling, documentation, and tests. These modifications
+are not endorsed by d-kuro, Amazon, Anthropic, Kiro, or the ClawGod project."
+
+kclaude excludes the upstream ClawGod integration and installer. It does not
+redistribute ClawGod or Claude Code. Claude Code is proprietary software
+from Anthropic and must be installed separately by the user. This project
+is independent and is not affiliated with or endorsed by Amazon, Anthropic,
+Kiro, d-kuro, itututu, or the ClawGod project.

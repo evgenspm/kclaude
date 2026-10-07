@@ -1,0 +1,9 @@
+dist/
+__pycache__/
+*.pyc
+.DS_Store
+*.key
+*.log
+.env*
+accounts.json
+coverage.out
