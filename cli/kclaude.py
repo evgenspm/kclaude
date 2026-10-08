@@ -201,11 +201,61 @@ def accounts(args):
     print(f'{opts.name}: {opts.command} complete.' + (' Router will restart on the next request.' if stopped else ''))
 
 
-def import_session(session_id=None):
-    folder = re.sub(r'[^a-zA-Z0-9]', '-', str(Path.cwd()))
+def source_config():
     original = Path(os.environ.get('KCLAUDE_SOURCE_CONFIG', str(Path.home() / '.claude'))).expanduser()
     if original.resolve() == PROFILE.resolve():
         raise ValueError('Source profile must differ from the kclaude profile')
+    return original
+
+
+# Linked from the source profile so kclaude behaves like your normal Claude Code.
+SHARED = ('CLAUDE.md', 'skills', 'plugins', 'agents', 'commands', 'output-styles', 'mcp.json', 'keybindings.json')
+STATUS_LINE = {'type': 'command', 'command': "printf 'KIRO / kclaude'"}
+
+
+def share_profile():
+    """Mirror the user's own Claude setup; history and sessions stay separate.
+
+    KCLAUDE_SHARE_PROFILE=0 keeps the profile fully separate.
+    KCLAUDE_SHARED=a,b replaces the list of linked items."""
+    if os.environ.get('KCLAUDE_SHARE_PROFILE', '1') == '0':
+        return
+    original = source_config()
+    names = [n.strip() for n in os.environ.get('KCLAUDE_SHARED', '').split(',') if n.strip()] or SHARED
+    for name in names:
+        if '/' in name or name in ('.', '..', 'projects', 'settings.json'):
+            raise ValueError('KCLAUDE_SHARED accepts top-level profile names only: ' + name)
+        src, dst = original / name, PROFILE / name
+        if not src.exists() or (dst.is_symlink() and dst.resolve() == src.resolve()):
+            continue
+        if dst.is_symlink() or dst.is_file():
+            dst.unlink()
+        elif dst.is_dir():
+            dst.rename(ROOT / f'{name}.kclaude-old-{int(time.time())}')
+        dst.symlink_to(src)
+    # Rebuilt on every launch so hooks, permissions, plugins and env follow the source.
+    source = original / 'settings.json'
+    settings = json.loads(source.read_text()) if source.is_file() else {}
+    settings.pop('apiKeyHelper', None)  # credentials come from the router
+    settings.setdefault('statusLine', STATUS_LINE)
+    settings['skipDangerousModePermissionPrompt'] = True
+    write_private(PROFILE / 'settings.json', json.dumps(settings, indent=2, ensure_ascii=False) + '\n')
+    # Project memory is per folder; link the one for this directory.
+    folder = re.sub(r'[^a-zA-Z0-9]', '-', str(Path.cwd()))
+    src, dst = original / 'projects' / folder / 'memory', PROFILE / 'projects' / folder / 'memory'
+    if src.is_dir() and not dst.is_symlink():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.is_dir():
+            for item in dst.iterdir():
+                if not (src / item.name).exists():
+                    shutil.move(str(item), str(src / item.name))
+            shutil.rmtree(dst)
+        dst.symlink_to(src)
+
+
+def import_session(session_id=None):
+    folder = re.sub(r'[^a-zA-Z0-9]', '-', str(Path.cwd()))
+    original = source_config()
     source = original / 'projects' / folder
     if session_id:
         session_id = str(uuid.UUID(session_id))
@@ -312,7 +362,8 @@ HELP = '''kclaude: Claude Code through your own Kiro accounts. Default model: Op
 
 Claude Code options pass through, including -p, --resume and --permission-mode.
 Default: --dangerously-skip-permissions. Use --safe to restore permission prompts.
-Settings and history live in ~/.local/share/kclaude/claude, separate from ~/.claude.
+Uses your ~/.claude setup (skills, plugins, hooks, MCP, memory); history stays separate.
+KCLAUDE_SHARE_PROFILE=0 keeps the profile fully separate.
 Get your own Kiro API keys at https://app.kiro.dev/. Docs: https://github.com/evgenspm/kclaude
 '''
 
@@ -348,6 +399,7 @@ def main(args=None):
             print(json.dumps(request('/kclaude/status'), indent=2))
         return
     claude = claude_command()
+    share_profile()
     args, seat = launch_args(args)
     start()
     count = sum(not a.get('disabled') for a in config()['accounts'])

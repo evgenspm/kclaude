@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.0.2] - 2026-10-07
+
+- Mirror your own Claude Code setup: link `CLAUDE.md`, skills, plugins, agents, commands, output styles, MCP config, keybindings and project memory from `~/.claude`, and rebuild settings (hooks, permissions, env) from yours on every launch. History stays separate.
+- Add `KCLAUDE_SHARED` and `KCLAUDE_SHARE_PROFILE=0`; `KCLAUDE_SOURCE_CONFIG` now also selects the mirrored profile.
+- Add README instructions for coding agents that install kclaude on a custom setup.
+
 ## [1.0.0.1] - 2026-10-07
 
 - Fix zero token usage when Kiro sends metadata containing only a stop reason. Use local input/output estimates when upstream counts are absent, including thinking and tool arguments.

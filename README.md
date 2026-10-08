@@ -2,7 +2,7 @@
 
 Use Claude Code with **Claude Opus 5.5 through your Kiro accounts**.
 
-Add your Kiro API keys, run `kclaude` in a project, and use the Claude Code terminal, tools, and session workflow you already know. kclaude runs a local router and keeps a separate Claude profile. When an account rejects a request because of a limit or an authentication error, the router tries the next enabled account.
+Add your Kiro API keys, run `kclaude` in a project, and use the Claude Code terminal, tools, and session workflow you already know. kclaude runs a local router and a Claude profile that mirrors your own `~/.claude` setup, with separate history. When an account rejects a request because of a limit or an authentication error, the router tries the next enabled account.
 
 [Русский](README.ru.md) · [Releases](https://github.com/evgenspm/kclaude/releases) · [License](LICENSE)
 
@@ -86,9 +86,30 @@ Or copy a specific session ID from Claude's `/status`:
 kclaude --from-claude-id YOUR_SESSION_UUID
 ```
 
-kclaude copies the transcript and its sidecar directory, then passes `--resume` and `--fork-session` to Claude Code. Your source transcript stays intact. The two copies develop separate histories. Import does not transfer a running process, active background jobs, global hooks, plugins, or global memory files. Project files and project-level settings remain shared because you are working in the same directory.
+kclaude copies the transcript and its sidecar directory, then passes `--resume` and `--fork-session` to Claude Code. Your source transcript stays intact. The two copies develop separate histories. Import does not transfer a running process or active background jobs. Project files and project-level settings remain shared because you are working in the same directory.
 
 For a nonstandard source profile, set `KCLAUDE_SOURCE_CONFIG=/path/to/claude-profile` on the import command. Stop editing the same files in the source chat before continuing its copy.
+
+## Your Claude setup
+
+On every launch kclaude links your `CLAUDE.md`, `skills`, `plugins`, `agents`, `commands`, `output-styles`, `mcp.json`, `keybindings.json` and the current project's memory folder from `~/.claude` into its profile, and rebuilds its `settings.json` from yours, so hooks, permissions, plugins and env match. Only chat history and sessions stay separate. kclaude never writes to `~/.claude`, except that memory files left in an old kclaude profile move into your project memory once. `apiKeyHelper` is dropped because credentials come from the router.
+
+| Variable | Effect |
+| --- | --- |
+| `KCLAUDE_SOURCE_CONFIG=/path` | Mirror a profile other than `~/.claude` |
+| `KCLAUDE_SHARED=CLAUDE.md,skills` | Link only these top-level items |
+| `KCLAUDE_SHARE_PROFILE=0` | Keep the kclaude profile fully separate |
+
+Put these in your shell startup file if you need them permanently.
+
+### For coding agents installing kclaude
+
+Everyone's setup differs, so check it before the first run instead of assuming the defaults fit:
+
+1. Find the user's real Claude profile: `$CLAUDE_CONFIG_DIR` if set, otherwise `~/.claude`. If it is not `~/.claude`, export `KCLAUDE_SOURCE_CONFIG` to it.
+2. List the top-level items there. If the user keeps config somewhere kclaude does not link (for example extra directories referenced from hooks), tell them; hooks use absolute paths and keep working.
+3. Look at `settings.json` for anything tied to Anthropic auth or a specific provider (`apiKeyHelper`, `env` entries with `ANTHROPIC_*`, Bedrock/Vertex flags). kclaude drops `apiKeyHelper` and clears `ANTHROPIC_*` variables from the environment, but `env` entries in settings still apply inside Claude. Ask before changing the user's own settings.
+4. Run `kclaude -p "reply: ok"` from a project folder and confirm the reply, then check that `~/.local/share/kclaude/claude/skills` points at the user's skills.
 
 ## Manage the router
 
@@ -117,10 +138,10 @@ Claude Code -> https://127.0.0.1:17391 -> your Kiro account -> model
 | `~/.local/share/kclaude/accounts.json` | Account names, key paths, regions |
 | `~/.local/share/kclaude/proxy.key` | Random local router token |
 | `~/.local/share/kclaude/router-cert.pem`, `router-tls.key` | Certificate and private key for local TLS |
-| `~/.local/share/kclaude/claude/` | Separate Claude settings and history |
+| `~/.local/share/kclaude/claude/` | kclaude profile: links to your setup, its own history |
 | `~/.local/share/kclaude/router.log` | Router diagnostics |
 
-The installer does not edit `~/.claude`, your `claude` executable, or shell startup files. kclaude sets the API URL and credentials only for the Claude process it launches. It binds the router to loopback, authenticates API requests, uses a private local TLS certificate for Claude connections, and rejects browser Origin headers. The launcher also checks a challenge before sending its token. It adds the local certificate to the Claude child's trust through `NODE_EXTRA_CA_CERTS`; it does not install a system certificate. Inference and search requests include Kiro's opt-out header. Conversations still go to Kiro to run the model, and Claude writes session data into its separate local profile.
+The installer and launcher do not edit `~/.claude`, your `claude` executable, or shell startup files. kclaude sets the API URL and credentials only for the Claude process it launches. It binds the router to loopback, authenticates API requests, uses a private local TLS certificate for Claude connections, and rejects browser Origin headers. The launcher also checks a challenge before sending its token. It adds the local certificate to the Claude child's trust through `NODE_EXTRA_CA_CERTS`; it does not install a system certificate. Inference and search requests include Kiro's opt-out header. Conversations still go to Kiro to run the model, and Claude writes session data into its separate local profile.
 
 For separate router instances, set both `KCLAUDE_HOME` and `KCLAUDE_PORT` on all commands for that instance:
 

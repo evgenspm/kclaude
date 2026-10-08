@@ -128,6 +128,40 @@ class CLITest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.cli.import_session('../not-a-uuid')
 
+    def test_profile_mirrors_source_claude_setup(self):
+        own = self.home / '.claude'
+        folder = re.sub(r'[^a-zA-Z0-9]', '-', str(Path.cwd()))
+        (own / 'skills/mine').mkdir(parents=True)
+        (own / 'CLAUDE.md').write_text('my rules')
+        (own / 'settings.json').write_text('{"hooks":{"SessionStart":[]},"model":"opus","apiKeyHelper":"x"}')
+        (own / 'projects' / folder / 'memory').mkdir(parents=True)
+        stale = self.cli.PROFILE / 'projects' / folder / 'memory'
+        stale.mkdir(parents=True)
+        (stale / 'note.md').write_text('keep me')
+        with mock.patch.dict(os.environ, {'KCLAUDE_SOURCE_CONFIG': '', 'KCLAUDE_SHARED': '', 'KCLAUDE_SHARE_PROFILE': '1'}):
+            os.environ.pop('KCLAUDE_SOURCE_CONFIG')
+            for _ in range(2):  # repeat launches are idempotent
+                self.cli.share_profile()
+        self.assertEqual((self.cli.PROFILE / 'CLAUDE.md').read_text(), 'my rules')
+        self.assertTrue((self.cli.PROFILE / 'skills').is_symlink())
+        settings = json.loads((self.cli.PROFILE / 'settings.json').read_text())
+        self.assertIn('hooks', settings)
+        self.assertEqual(settings['model'], 'opus')
+        self.assertNotIn('apiKeyHelper', settings)
+        self.assertTrue(settings['skipDangerousModePermissionPrompt'])
+        self.assertTrue(stale.is_symlink())
+        self.assertEqual((own / 'projects' / folder / 'memory/note.md').read_text(), 'keep me')
+        self.assertEqual(json.loads((own / 'settings.json').read_text())['apiKeyHelper'], 'x')
+        with mock.patch.dict(os.environ, {'KCLAUDE_SHARED': '../escape'}), self.assertRaises(ValueError):
+            self.cli.share_profile()
+
+    def test_share_profile_can_be_disabled(self):
+        (self.home / '.claude').mkdir()
+        (self.home / '.claude/CLAUDE.md').write_text('mine')
+        with mock.patch.dict(os.environ, {'KCLAUDE_SHARE_PROFILE': '0'}):
+            self.cli.share_profile()
+        self.assertFalse((self.cli.PROFILE / 'CLAUDE.md').exists())
+
     def test_start_without_accounts_fails_with_next_step(self):
         with mock.patch.object(self.cli, 'running', return_value=None):
             with self.assertRaisesRegex(RuntimeError, 'accounts add'):

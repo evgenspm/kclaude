@@ -1,8 +1,8 @@
 Run Claude Code with Opus 5.5 through your own Kiro accounts.
 
-Fixes token counters stuck near zero: stop-reason metadata no longer overwrites token estimates with zeros. Thinking and tool arguments are included. Exact upstream counts take priority, and cached input is reported separately.
+kclaude now looks like your normal Claude Code. On every launch it links your `CLAUDE.md`, skills, plugins, agents, commands, MCP config, keybindings and project memory from `~/.claude`, and rebuilds its settings from yours, so hooks and permissions match. Chat history stays separate. Use `KCLAUDE_SOURCE_CONFIG` for a different profile, `KCLAUDE_SHARED` to pick items, or `KCLAUDE_SHARE_PROFILE=0` for the old fully separate profile. If an agent installs kclaude for you, point it at "For coding agents installing kclaude" in the README.
 
-Kiro API-key responses may omit token counts, so Claude Code's counters are approximate and its dollar estimate is not Kiro billing. Existing zero counts in saved history remain unchanged. Finish active work, run `kclaude stop`, then update with the installer below; the next launch starts the updated router.
+Finish active work, run `kclaude stop`, then update with the installer below.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/evgenspm/kclaude/main/install.sh | sh
@@ -12,7 +12,3 @@ kclaude
 ```
 
 Requires an installed Claude Code, Python 3.9+, and an eligible Kiro API key. Archives support macOS/Linux on arm64/amd64; the installer checks SHA-256 hashes.
-
-The default launch mode is `--dangerously-skip-permissions`. Use `kclaude --safe` for normal permission prompts.
-
-Includes account failover, separate settings/history, and `--from-claude` session copying. See the README for account setup, limitations, and storage paths. Apache-2.0; independent of Amazon and Anthropic.
