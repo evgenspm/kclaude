@@ -289,6 +289,36 @@ def claude_command():
     return path
 
 
+def sync_install_method(claude):
+    """Record a verified native executable in this profile's global config."""
+    with Path(claude).resolve().open('rb') as stream:
+        magic = stream.read(4)
+    # Native Claude releases are Mach-O on macOS and ELF on Linux. Shell/npm
+    # wrappers remain untouched; their installation method is not inferred.
+    if magic not in (b'\xcf\xfa\xed\xfe', b'\xfe\xed\xfa\xcf', b'\xca\xfe\xba\xbe', b'\x7fELF'):
+        return
+    with (ROOT / 'start.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        path = PROFILE / '.claude.json'
+        if path.is_symlink():
+            return
+        # Claude Code uses proper-lockfile's mkdir-based lock for this file.
+        # start.lock alone does not coordinate with already running sessions.
+        config_lock = path.with_name(path.name + '.lock')
+        try:
+            config_lock.mkdir(mode=0o700)
+        except FileExistsError:
+            return  # Cosmetic repair can wait; never steal a live config lock.
+        try:
+            settings = json.loads(path.read_bytes()) if path.exists() else {}
+            if settings.get('installMethod') == 'native':
+                return
+            settings['installMethod'] = 'native'
+            write_private(path, json.dumps(settings, indent=2, ensure_ascii=False) + '\n')
+        finally:
+            config_lock.rmdir()
+
+
 def launch_args(args):
     args = list(args)
     # Arguments after -- belong to Claude's prompt, not this wrapper.
@@ -399,6 +429,7 @@ def main(args=None):
             print(json.dumps(request('/kclaude/status'), indent=2))
         return
     claude = claude_command()
+    sync_install_method(claude)
     share_profile()
     args, seat = launch_args(args)
     start()
