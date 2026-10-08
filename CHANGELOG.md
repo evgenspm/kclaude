@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.1.1] - 2026-10-07
+
+- Wait up to three minutes for Kiro response headers instead of 30 seconds, preventing premature timeouts on conversations with many images. Cancelling the request still interrupts the wait.
+
 ## [1.0.1.0] - 2026-10-07
 
 - Fix images returned by `Read`: send them to the model, preserve them in conversation history, and keep parallel reads in the correct order.
