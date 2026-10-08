@@ -165,7 +165,10 @@ func NewHTTPClient(opts ...HTTPClientOption) *HTTPClient {
 	transport.MaxIdleConns = 100
 	transport.MaxIdleConnsPerHost = 10
 	transport.IdleConnTimeout = 90 * time.Second
-	transport.ResponseHeaderTimeout = 30 * time.Second
+	// Kiro can spend over 30 seconds preparing multimodal input before sending
+	// response headers. Keep this bounded, while allowing request cancellation
+	// to interrupt the wait immediately.
+	transport.ResponseHeaderTimeout = 3 * time.Minute
 
 	c := &HTTPClient{}
 	for _, opt := range opts {
