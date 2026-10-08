@@ -16,6 +16,10 @@ func ExtractImages(content anthropic.MessageContent) []kiroproto.Image {
 	}
 	var images []kiroproto.Image
 	for _, b := range content.Blocks {
+		if b.IsToolResult() {
+			images = append(images, ExtractImages(b.Content)...)
+			continue
+		}
 		if b.Type != anthropic.BlockTypeImage || b.Source == nil {
 			continue
 		}

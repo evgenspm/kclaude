@@ -50,9 +50,7 @@ func textualizeAllToolContent(msgs []anthropic.Message) []anthropic.Message {
 				text := fmt.Sprintf("[Tool: %s (%s)]\n%s", b.Name, b.ID, string(inputJSON))
 				newBlocks = append(newBlocks, anthropic.ContentBlock{Type: anthropic.BlockTypeText, Text: text})
 			case anthropic.BlockTypeToolResult, anthropic.BlockTypeToolSearchToolResult:
-				content := extractToolResultContentText(b)
-				text := fmt.Sprintf("[Tool Result (%s)]\n%s", b.ToolUseID, content)
-				newBlocks = append(newBlocks, anthropic.ContentBlock{Type: anthropic.BlockTypeText, Text: text})
+				newBlocks = append(newBlocks, textualizedToolResult(b)...)
 			default:
 				newBlocks = append(newBlocks, b)
 			}
@@ -88,9 +86,7 @@ func textualizeOrphanToolResults(msgs []anthropic.Message) []anthropic.Message {
 		for _, b := range msg.Content.Blocks {
 			if b.IsToolResult() {
 				if _, ok := assistantToolIDs[b.ToolUseID]; !ok {
-					content := extractToolResultContentText(b)
-					text := fmt.Sprintf("[Tool Result (%s)]\n%s", b.ToolUseID, content)
-					newBlocks = append(newBlocks, anthropic.ContentBlock{Type: anthropic.BlockTypeText, Text: text})
+					newBlocks = append(newBlocks, textualizedToolResult(b)...)
 					continue
 				}
 			}
@@ -104,6 +100,18 @@ func textualizeOrphanToolResults(msgs []anthropic.Message) []anthropic.Message {
 	return result
 }
 
+// Keep image blocks when a result must be represented without its tool call.
+func textualizedToolResult(b anthropic.ContentBlock) []anthropic.ContentBlock {
+	text := fmt.Sprintf("[Tool Result (%s)]\n%s", b.ToolUseID, extractToolResultContentText(b))
+	blocks := []anthropic.ContentBlock{{Type: anthropic.BlockTypeText, Text: text}}
+	for _, cb := range b.Content.Blocks {
+		if cb.Type == anthropic.BlockTypeImage {
+			blocks = append(blocks, cb)
+		}
+	}
+	return blocks
+}
+
 // extractToolResultContentText gets the text content from a tool_result block.
 func extractToolResultContentText(b anthropic.ContentBlock) string {
 	if b.Content.IsString() {
@@ -114,6 +122,8 @@ func extractToolResultContentText(b anthropic.ContentBlock) string {
 		switch {
 		case cb.Type == anthropic.BlockTypeText:
 			parts = append(parts, cb.Text)
+		case cb.Type == anthropic.BlockTypeImage && cb.Source != nil && cb.Source.Type == "base64":
+			parts = append(parts, "[Image attached]")
 		case cb.Type == anthropic.BlockTypeToolSearchSearchResult || len(cb.ToolReferences) > 0:
 			// Preserve tool_references from tool_search_tool_result content.
 			for _, ref := range cb.ToolReferences {

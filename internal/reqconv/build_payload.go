@@ -146,7 +146,8 @@ func buildCurrentMessage(lastMsg anthropic.Message, lastContent, modelID string,
 	}
 
 	// Single-pass scan of lastMsg.Content to extract both tool_results and images.
-	toolResults, images := scanCurrentMessage(lastMsg.Content)
+	content := reorderToolResultBlocks(lastMsg.Content, precedingToolUseIDs)
+	toolResults, images := scanCurrentMessage(content)
 	toolResults = ReorderToolResults(toolResults, precedingToolUseIDs)
 	if envState != nil || len(toolEntries) > 0 || len(toolResults) > 0 {
 		// Field order matches the wire format: envState before tools.
