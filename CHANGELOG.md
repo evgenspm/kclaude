@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1.0] - 2026-10-07
+
+- Fix images returned by `Read`: send them to the model, preserve them in conversation history, and keep parallel reads in the correct order.
+- Accept requests up to 64 MiB, removing an inner 4 MiB limit that blocked long conversations with images. Larger requests return HTTP 413 with a recovery hint.
+- Exclude image base64 from text token estimates and allow an estimated 1,600 tokens per image when upstream usage is absent.
+- Record verified native Claude installations in the separate profile, fixing the `install method is unknown` warning while preserving existing settings.
+
 ## [1.0.0.2] - 2026-10-07
 
 - Mirror your own Claude Code setup: link `CLAUDE.md`, skills, plugins, agents, commands, output styles, MCP config, keybindings and project memory from `~/.claude`, and rebuild settings (hooks, permissions, env) from yours on every launch. History stays separate.
