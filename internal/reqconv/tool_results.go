@@ -1,9 +1,48 @@
 package reqconv
 
 import (
+	"cmp"
 	"github.com/evgenspm/kclaude/internal/anthropic"
 	"github.com/evgenspm/kclaude/internal/kiroproto"
+	"slices"
 )
+
+// Reorder result blocks before extracting their text AND images, so parallel
+// image reads keep the same association after matching the tool-call order.
+func reorderToolResultBlocks(content anthropic.MessageContent, ids []string) anthropic.MessageContent {
+	if content.IsString() || len(ids) < 2 {
+		return content
+	}
+	ranks := make(map[string]int, len(ids))
+	for i, id := range ids {
+		ranks[id] = i
+	}
+	rank := func(b anthropic.ContentBlock) int {
+		if i, ok := ranks[b.ToolUseID]; ok {
+			return i
+		}
+		return len(ids)
+	}
+	var results []anthropic.ContentBlock
+	for _, b := range content.Blocks {
+		if b.IsToolResult() {
+			results = append(results, b)
+		}
+	}
+	if len(results) < 2 {
+		return content
+	}
+	slices.SortStableFunc(results, func(a, b anthropic.ContentBlock) int { return cmp.Compare(rank(a), rank(b)) })
+	content.Blocks = slices.Clone(content.Blocks)
+	next := 0
+	for i, b := range content.Blocks {
+		if b.IsToolResult() {
+			content.Blocks[i] = results[next]
+			next++
+		}
+	}
+	return content
+}
 
 // ExtractToolResults extracts tool_result blocks from message content and converts to Kiro format.
 func ExtractToolResults(content anthropic.MessageContent) []kiroproto.ToolResult {

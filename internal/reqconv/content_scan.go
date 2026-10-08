@@ -18,6 +18,7 @@ func scanCurrentMessage(content anthropic.MessageContent) (toolResults []kiropro
 	for _, b := range content.Blocks {
 		switch {
 		case b.IsToolResult():
+			images = append(images, ExtractImages(b.Content)...)
 			status := kiroproto.ToolResultStatusSuccess
 			exitStatus := "0"
 			if b.IsError {

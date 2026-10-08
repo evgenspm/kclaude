@@ -167,6 +167,69 @@ class CLITest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'accounts add'):
                 self.cli.start()
 
+    def test_launch_records_native_install_without_replacing_profile(self):
+        binary = self.home / 'claude-native'
+        binary.write_bytes(b'\xcf\xfa\xed\xfe' + b'native fixture')
+        profile = self.cli.PROFILE / '.claude.json'
+        original = {'projects': {'somewhere': {'trusted': True}}, 'hasCompletedOnboarding': True}
+        profile.write_text(json.dumps(original))
+        source = self.home / '.claude.json'
+        source.write_text('{"installMethod":"global","sourceOnly":true}')
+        with mock.patch.object(self.cli, 'claude_command', return_value=str(binary)), \
+                mock.patch.object(self.cli, 'share_profile'), mock.patch.object(self.cli, 'start'), \
+                mock.patch.object(self.cli.os, 'execve'), contextlib.redirect_stderr(io.StringIO()):
+            self.cli.main(['--safe', 'doctor'])
+        self.assertEqual(json.loads(profile.read_text()), dict(original, installMethod='native'))
+        self.assertEqual(source.read_text(), '{"installMethod":"global","sourceOnly":true}')
+        self.assertEqual(profile.stat().st_mode & 0o777, 0o600)
+
+    def test_install_method_fresh_idempotent_and_script_unchanged(self):
+        binary = self.home / 'claude-native'
+        binary.write_bytes(b'\x7fELFfixture')
+        profile = self.cli.PROFILE / '.claude.json'
+        self.cli.sync_install_method(str(binary))
+        self.assertEqual(json.loads(profile.read_text()), {'installMethod': 'native'})
+        before = profile.stat().st_mtime_ns
+        self.cli.sync_install_method(str(binary))
+        self.assertEqual(profile.stat().st_mtime_ns, before)
+        binary.write_text('#!/usr/bin/env node\n')
+        profile.write_text('{"installMethod":"global"}')
+        self.cli.sync_install_method(str(binary))
+        self.assertEqual(profile.read_text(), '{"installMethod":"global"}')
+        binary.write_bytes(b'\x7fELFfixture')
+        profile.write_text('{broken')
+        with self.assertRaises(ValueError):
+            self.cli.sync_install_method(str(binary))
+        self.assertEqual(profile.read_text(), '{broken')
+
+    def test_install_method_respects_claude_config_lock_and_symlinks(self):
+        binary = self.home / 'claude-native'
+        binary.write_bytes(b'\x7fELFfixture')
+        profile = self.cli.PROFILE / '.claude.json'
+        lock = self.cli.PROFILE / '.claude.json.lock'
+        lock.mkdir()
+        self.cli.sync_install_method(str(binary))
+        self.assertFalse(profile.exists())
+        self.assertTrue(lock.is_dir())
+        original = {'projects': {'concurrent': {'trusted': True}}}
+        profile.write_text(json.dumps(original))
+        lock.rmdir()
+        write = self.cli.write_private
+        def checked_write(path, data):
+            self.assertTrue(lock.is_dir())
+            write(path, data)
+        with mock.patch.object(self.cli, 'write_private', side_effect=checked_write):
+            self.cli.sync_install_method(str(binary))
+        self.assertEqual(json.loads(profile.read_text()), dict(original, installMethod='native'))
+        self.assertFalse(lock.exists())
+        profile.unlink()
+        source = self.home / 'source.json'
+        source.write_text('{}')
+        profile.symlink_to(source)
+        self.cli.sync_install_method(str(binary))
+        self.assertTrue(profile.is_symlink())
+        self.assertEqual(source.read_text(), '{}')
+
     def test_forged_router_proof_does_not_receive_bearer_or_trigger_stop(self):
         connection = mock.MagicMock()
         response = connection.getresponse.return_value

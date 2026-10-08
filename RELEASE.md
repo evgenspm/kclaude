@@ -1,14 +1,10 @@
-Run Claude Code with Opus 5.5 through your own Kiro accounts.
+Fix image reads and conversations blocked by `request body too large`.
 
-kclaude now looks like your normal Claude Code. On every launch it links your `CLAUDE.md`, skills, plugins, agents, commands, MCP config, keybindings and project memory from `~/.claude`, and rebuilds its settings from yours, so hooks and permissions match. Chat history stays separate. Use `KCLAUDE_SOURCE_CONFIG` for a different profile, `KCLAUDE_SHARED` to pick items, or `KCLAUDE_SHARE_PROFILE=0` for the old fully separate profile. If an agent installs kclaude for you, point it at "For coding agents installing kclaude" in the README.
+- Claude now receives images returned by `Read`, including images in earlier turns and parallel tool results.
+- Requests up to 64 MiB reach the router. The old inner 4 MiB limit no longer rejects image-heavy conversations; larger requests return HTTP 413.
+- Chat token estimates exclude image base64 and use an approximate 1,600 tokens per image when Kiro omits usage.
+- Native Claude installations no longer show `install method is unknown` in the separate profile.
 
-Finish active work, run `kclaude stop`, then update with the installer below.
+Run the install command again to update. Wait for active requests to finish, run `kclaude stop`, then resume your conversation with `kclaude --resume SESSION_ID`. Review visual work produced before this fix because the model may not have received its images.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/evgenspm/kclaude/main/install.sh | sh
-kclaude accounts add personal
-cd your-project
-kclaude
-```
-
-Requires an installed Claude Code, Python 3.9+, and an eligible Kiro API key. Archives support macOS/Linux on arm64/amd64; the installer checks SHA-256 hashes.
+Verified with Go race tests, Python installer and launcher tests, and a live Opus 5.5 test that read a random code from an image through Claude Code's `Read` tool and retained the image in a later request.

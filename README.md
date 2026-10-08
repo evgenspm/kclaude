@@ -70,7 +70,9 @@ Default model aliases:
 
 Kiro lists Opus 5.5 and Sonnet 5.5 in its [model documentation](https://kiro.dev/docs/models/). Availability and credit costs depend on your account and Kiro's current offering. `kclaude models` shows the adapter's model aliases; it does not check your account's entitlements or remaining credits.
 
-**Token counters:** Kiro API-key responses can omit token counts. When they do, kclaude estimates input with `cl100k_base` over the serialized request and output at about four characters per token, including thinking and tool arguments. These are approximations, not Claude's tokenizer or Kiro's bill. Upstream counts take priority when provided. Claude Code's dollar estimate does not represent Kiro subscription charges; check your Kiro account for credit usage. Counts recorded as zero by versions before 1.0.0.1 are not repaired retroactively.
+**Token counters:** Kiro API-key responses can omit token counts. When they do, kclaude estimates chat input with `cl100k_base`, excluding image base64 and allowing an estimated 1,600 tokens per image. It estimates output at about four characters per token, including thinking and tool arguments. These are approximations, not Claude's tokenizer or Kiro's bill. Upstream counts take priority when provided. Claude Code's dollar estimate does not represent Kiro subscription charges; check your Kiro account for credit usage. Counts recorded as zero by versions before 1.0.0.1 are not repaired retroactively.
+
+Images returned by `Read` remain visible in later turns. The local request limit is 64 MiB; upstream image and context limits still apply. If a conversation created before 1.0.1.0 gets stuck with `request body too large`, update and restart the router between active requests, then resume that conversation. Re-run visual checks made while images were missing.
 
 ## Continue an existing Claude chat
 

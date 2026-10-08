@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,11 +20,25 @@ import (
 	"github.com/evgenspm/kclaude/internal/tokencount"
 )
 
+// Allow long Claude Code conversations with base64 image results. This matches
+// the outer kclaude-router limit; a smaller inner limit rejects valid requests.
+const maxRequestBodyBytes = 64 << 20
+
+func writeRequestError(w http.ResponseWriter, err error) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		httpx.WriteError(w, http.StatusRequestEntityTooLarge, "request_too_large",
+			"request body exceeds the 64 MiB limit; compact the conversation or use smaller images")
+		return
+	}
+	httpx.WriteError(w, http.StatusBadRequest, errTypeInvalidRequest, err.Error())
+}
+
 // HandleCountTokens serves POST /v1/messages/count_tokens.
 func (s *Service) HandleCountTokens(w http.ResponseWriter, r *http.Request) {
 	req, err := parseAndValidateRequest(r.Context(), w, r)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, errTypeInvalidRequest, err.Error())
+		writeRequestError(w, err)
 		return
 	}
 
@@ -62,7 +77,7 @@ func (s *Service) HandleCountTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	n, err := tokencount.CountBytes(data)
+	n, err := tokencount.CountKiroPayload(data)
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, errTypeAPI, "token counting unavailable")
 		return
@@ -78,7 +93,7 @@ func (s *Service) HandleCountTokens(w http.ResponseWriter, r *http.Request) {
 
 // parseAndValidateRequest decodes and validates an Anthropic request from the HTTP body.
 func parseAndValidateRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) (*anthropic.Request, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	var req anthropic.Request
 	if slog.Default().Enabled(ctx, slog.LevelDebug) {
 		raw, err := io.ReadAll(r.Body)
