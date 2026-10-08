@@ -214,7 +214,7 @@ func loadPool(path string) (*pool, error) {
 		if !strings.HasPrefix(a.key, "ksk_") {
 			return nil, fmt.Errorf("%s: expected a Kiro API key", a.Name)
 		}
-		a.client = kiroclient.NewHTTPClient(kiroclient.WithAPIKeyAuth(), kiroclient.WithNoRetries(), kiroclient.WithRegion(a.Region), kiroclient.WithTokenCounter(tokencount.CountBytes))
+		a.client = kiroclient.NewHTTPClient(kiroclient.WithAPIKeyAuth(), kiroclient.WithNoRetries(), kiroclient.WithRegion(a.Region), kiroclient.WithTokenCounter(tokencount.CountKiroPayload))
 		p.accounts = append(p.accounts, a)
 	}
 	if len(p.accounts) == 0 {
